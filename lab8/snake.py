@@ -11,7 +11,7 @@ screen = pygame.display.set_mode((WIDTH, HEIGHT))
 pygame.display.set_caption("Pixel Snake")
 
 # Загрузка пиксельного рисунка змеи
-snake_image = pygame.image.load("snake3.png")
+snake_image = pygame.image.load("snake_image.png")
 snake_image = pygame.transform.scale(snake_image, (BLOCK_SIZE, BLOCK_SIZE))
 
 # Цвета
