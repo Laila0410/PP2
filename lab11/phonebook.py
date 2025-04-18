@@ -2,8 +2,8 @@ import psycopg2
 import csv
 from tabulate import tabulate 
 
-conn = psycopg2.connect(host="localhost", dbname="lab10", user="postgres",
-                        password="Almaty250505", port=5433)
+conn = psycopg2.connect(host="localhost", dbname = "lab10", user = "postgres",
+                        password = "Leyla.04.10", port = 5432, client_encoding="utf8" )
 
 cur = conn.cursor()
 
