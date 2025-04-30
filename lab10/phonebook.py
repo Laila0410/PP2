@@ -1,182 +1,247 @@
 import psycopg2
-import csv
 import pandas as pd
-from tabulate import tabulate 
+import chardet
+from tabulate import tabulate
+import sys
 
-conn = psycopg2.connect(host="localhost", dbname = "lab10", user = "postgres",
-                        password = "Leyla.04.10", port = 5432, client_encoding="utf8" )
+try:
+    conn = psycopg2.connect(
+        host="localhost",
+        dbname="postgres",
+        user="postgres",
+        password="postgres",
+        port="5432"
+    )
+    print("Подключение успешно!")
+    print(f"Кодировка соединения: {conn.encoding}")
+    conn.close()
+except Exception as e:
+    print(f"Ошибка: {e}")
 
-cur = conn.cursor()
-
-cur.execute("""CREATE TABLE IF NOT EXISTS phonebook (
-      user_id SERIAL PRIMARY KEY,
-      name VARCHAR(255) NOT NULL,
-      surname VARCHAR(255) NOT NULL, 
-      phone VARCHAR(255) NOT NULL
-
-)
-""")
-check = True
-command = ''
-temp = ''
-
-name_var = ''
-surname_var = ''
-phone_var = ''
-id_var = ''
-
-start = True
-back = False
-
-back_com = ''
-name_upd = ''
-surname_upd = ''
-phone_upd = ''
-
-filepath = ''
-
-while check:
-    if start == True or back == True:
-        start = False
-        print("""
-        List of the commands:
-        1. Type "i" or "I" in order to INSERT data to the table.
-        2. Type "u" or "U" in order to UPDATE data in the table.
-        3. Type "q" or "Q" in order to make specidific QUERY in the table.
-        4. Type "d" or "D" in order to DELETE data from the table.
-        5. Type "f" or "F" in order to close the program.
-        6. Type "s" or "S" in order to see the values in the table.
-        """)
-        command = str(input())
-        
-        #insert
-        if command == "i" or command == "I":
-            print('Type "csv" or "con" to choose option between uploading csv file or typing from console: ')
-            command = ''
-            temp = str(input())
-            if temp == "con":
-                name_var = str(input("Name: "))
-                surname_var = str(input("Surname: "))
-                phone_var = str(input("Phone: "))
-                cur.execute("INSERT INTO phonebook (name, surname, phone) VALUES (%s, %s, %s)", (name_var, surname_var, phone_var))
-                conn.commit()
-                back_com = str(input('Type "back" in order to return to the list of the commands: '))
-                if back_com == "back":
-                    back = True
-            if temp == "csv":
-                filepath = input("Enter a file path with proper extension: ")
-                with open(str(filepath), 'r') as f:
-                # Skip the header row.
-                    reader = csv.reader(f)
-                    next(reader)
-                    for row in reader:
-                        cur.execute("INSERT INTO phonebook (name, surname, phone) VALUES (%s, %s, %s)", (row[0], row[1], row[2]))
-                conn.commit()
-
-                    
-                back_com = str(input('Type "back" in order to return to the list of the commands: '))
-                if back_com == "back":
-                    back = True
-
-        #delete
-        if command == "d" or command == "D":
-            back = False
-            command = ''
-            phone_var = str(input('Type phone number which you want to delete: '))
-            cur.execute("DELETE FROM phonebook WHERE phone = %s", (phone_var,))
+def initialize_database(conn):
+    """Инициализирует таблицу phonebook"""
+    try:
+        with conn.cursor() as cur:
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS phonebook (
+                    user_id SERIAL PRIMARY KEY,
+                    name VARCHAR(255) NOT NULL,
+                    surname VARCHAR(255) NOT NULL,
+                    phone VARCHAR(255) NOT NULL UNIQUE
+                )
+            """)
             conn.commit()
-            back_com = str(input('Type "back" in order to return to the list of the commands: '))
-            if back_com == "back":
-                back = True
+    except Exception as e:
+        print(f"Ошибка при создании таблицы: {e}")
+        conn.rollback()
+        sys.exit(1)
+
+def main_menu():
+    """Отображает главное меню"""
+    print("\n" + "="*50)
+    print("Телефонная книга".center(50))
+    print("="*50)
+    print("1. Добавить контакт")
+    print("2. Обновить контакт")
+    print("3. Поиск контактов")
+    print("4. Удалить контакт")
+    print("5. Показать все контакты")
+    print("6. Выйти")
+    print("="*50)
+    return input("Выберите действие (1-6): ").strip()
+
+def add_contact(conn):
+    """Добавляет новый контакт"""
+    print("\nДобавление контакта:")
+    print("1. Ввести вручную")
+    print("2. Загрузить из CSV")
+    choice = input("Выберите вариант (1/2): ").strip()
+    
+    if choice == "1":
+        name = input("Имя: ")
+        surname = input("Фамилия: ")
+        phone = input("Телефон: ")
         
-        #update
-        if command == 'u' or command == 'U':
-            back = False
-            command = ''
-            temp = str(input('Type the name of the column that you want to change: '))
-            if temp == "name":
-                name_var = str(input("Enter name that you want to change: "))
-                name_upd = str(input("Enter the new name: "))
-                cur.execute("UPDATE phonebook SET name = %s WHERE name = %s", (name_upd, name_var))
+        try:
+            with conn.cursor() as cur:
+                cur.execute(
+                    "INSERT INTO phonebook (name, surname, phone) VALUES (%s, %s, %s)",
+                    (name, surname, phone)
+                )
                 conn.commit()
-                back_com = str(input('Type "back" in order to return to the list of the commands: '))
-                if back_com == "back":
-                    back = True
-
-            if temp == "surname":
-                surname_var = str(input("Enter surname that you want to change: "))
-                surname_upd = str(input("Enter the new surname: "))
-                cur.execute("UPDATE phonebook SET surname = %s WHERE surname = %s", (surname_upd, surname_var))
-                back_com = str(input('Type "back" in order to return to the list of the commands: '))
-                if back_com == "back":
-                    back = True
-
-            if temp == "phone":
-                name_var = str(input("Enter phone number that you want to change: "))
-                name_upd = str(input("Enter the new phone number: "))
-                cur.execute("UPDATE phonebook SET phone = %s WHERE phone = %s", (phone_upd, phone_var))
-                back_com = str(input('Type "back" in order to return to the list of the commands: '))
-                if back_com == "back":
-                    back = True
-        
-        #query
-        if command == "q" or command == "Q":
-            back = False
-            command = ''
-            temp = str(input("Type the name of the column which will be used for searching data: "))
-            if temp == "id":
-                id_var = str(input("Type id of the user: "))
-                cur.execute("SELECT * FROM phonebook WHERE user_id = %s", (id_var, ))
-                rows = cur.fetchall()
-                print(tabulate(rows, headers=["ID", "Name", "Surname", "Phone"]))
-                back_com = str(input('Type "back" in order to return to the list of the commands: '))
-                if back_com == "back":
-                    back = True
+                print("Контакт успешно добавлен!")
+        except psycopg2.IntegrityError:
+            print("Ошибка: контакт с таким телефоном уже существует")
+            conn.rollback()
+        except Exception as e:
+            print(f"Ошибка при добавлении: {e}")
+            conn.rollback()
+    
+    elif choice == "2":
+        filepath = input("Введите путь к CSV файлу: ")
+        try:
+            # Определяем кодировку файла
+            with open(filepath, 'rb') as f:
+                result = chardet.detect(f.read())
             
-            if temp == "name":
-                name_var = str(input("Type name of the user: "))
-                cur.execute("SELECT * FROM phonebook WHERE name = %s", (name_var, ))
-                rows = cur.fetchall()
-                print(tabulate(rows, headers=["ID", "Name", "Surname", "Phone"]))
-                back_com = str(input('Type "back" in order to return to the list of the commands: '))
-                if back_com == "back":
-                    back = True
+            # Читаем файл с определенной кодировкой
+            df = pd.read_csv(filepath, encoding=result['encoding'])
             
-            if temp == "surname":
-                surname_var = str(input("Type surname of the user: "))
-                cur.execute("SELECT * FROM phonebook WHERE surname = %s", (surname_var, ))
-                rows = cur.fetchall()
-                print(tabulate(rows, headers=["ID", "Name", "Surname", "Phone"]))
-                back_com = str(input('Type "back" in order to return to the list of the commands: '))
-                if back_com == "back":
-                    back = True
-                
-            if temp == "phone":
-                phone_var = str(input("Type phone number of the user: "))
-                cur.execute("SELECT * FROM phonebook WHERE phone = %s", (phone_var, ))
-                rows = cur.fetchall()
-                print(tabulate(rows, headers=["ID", "Name", "Surname", "Phone"]))
-                back_com = str(input('Type "back" in order to return to the list of the commands: '))
-                if back_com == "back":
-                    back = True
+            # Проверяем наличие нужных столбцов
+            if not all(col in df.columns for col in ['name', 'surname', 'phone']):
+                print("Ошибка: CSV файл должен содержать колонки 'name', 'surname' и 'phone'")
+                return
+            
+            # Добавляем данные в базу
+            with conn.cursor() as cur:
+                for _, row in df.iterrows():
+                    try:
+                        cur.execute(
+                            "INSERT INTO phonebook (name, surname, phone) VALUES (%s, %s, %s)",
+                            (row['name'], row['surname'], row['phone'])
+                        )
+                    except psycopg2.IntegrityError:
+                        print(f"Пропуск дубликата: {row['phone']}")
+                        continue
+                conn.commit()
+                print(f"Успешно добавлено {len(df)} контактов")
+        except Exception as e:
+            print(f"Ошибка при обработке CSV: {e}")
+            conn.rollback()
 
-        
-        #display
-        if command == "s" or command == "S":
-            back = False
-            command = ''
-            cur.execute("SELECT * from phonebook;")
-            rows = cur.fetchall()
-            print(tabulate(rows, headers=["ID", "Name", "Surname", "Phone"], tablefmt='fancy_grid'))
-            back_com = str(input('Type "back" in order to return to the list of the commands: '))
-            if back_com == "back":
-                back = True
-        #finish
-        if command == "f" or command == "F":
-            command = ''
-            check = False
-        
+def update_contact(conn):
+    """Обновляет существующий контакт"""
+    print("\nОбновление контакта:")
+    phone = input("Введите телефон контакта для обновления: ")
+    
+    try:
+        with conn.cursor() as cur:
+            cur.execute("SELECT * FROM phonebook WHERE phone = %s", (phone,))
+            contact = cur.fetchone()
+            
+            if not contact:
+                print("Контакт не найден")
+                return
+            
+            print("\nТекущие данные контакта:")
+            print(f"ID: {contact[0]}")
+            print(f"Имя: {contact[1]}")
+            print(f"Фамилия: {contact[2]}")
+            print(f"Телефон: {contact[3]}")
+            
+            print("\nЧто вы хотите изменить?")
+            print("1. Имя")
+            print("2. Фамилия")
+            print("3. Телефон")
+            print("4. Все данные")
+            choice = input("Выберите вариант (1-4): ").strip()
+            
+            new_name, new_surname, new_phone = contact[1], contact[2], contact[3]
+            
+            if choice in ["1", "4"]:
+                new_name = input("Новое имя: ")
+            if choice in ["2", "4"]:
+                new_surname = input("Новая фамилия: ")
+            if choice in ["3", "4"]:
+                new_phone = input("Новый телефон: ")
+            
+            cur.execute(
+                "UPDATE phonebook SET name = %s, surname = %s, phone = %s WHERE user_id = %s",
+                (new_name, new_surname, new_phone, contact[0])
+            )
+            conn.commit()
+            print("Контакт успешно обновлен!")
+    except Exception as e:
+        print(f"Ошибка при обновлении: {e}")
+        conn.rollback()
 
-conn.commit()
-cur.close()
-conn.close()
+def search_contacts(conn):
+    """Поиск контактов"""
+    print("\nПоиск контактов:")
+    print("1. По ID")
+    print("2. По имени")
+    print("3. По фамилии")
+    print("4. По телефону")
+    print("5. Показать все")
+    choice = input("Выберите вариант поиска (1-5): ").strip()
+    
+    try:
+        with conn.cursor() as cur:
+            if choice == "1":
+                user_id = input("Введите ID: ")
+                cur.execute("SELECT * FROM phonebook WHERE user_id = %s", (user_id,))
+            elif choice == "2":
+                name = input("Введите имя: ")
+                cur.execute("SELECT * FROM phonebook WHERE name ILIKE %s", (f"%{name}%",))
+            elif choice == "3":
+                surname = input("Введите фамилию: ")
+                cur.execute("SELECT * FROM phonebook WHERE surname ILIKE %s", (f"%{surname}%",))
+            elif choice == "4":
+                phone = input("Введите телефон: ")
+                cur.execute("SELECT * FROM phonebook WHERE phone LIKE %s", (f"%{phone}%",))
+            elif choice == "5":
+                cur.execute("SELECT * FROM phonebook")
+            else:
+                print("Неверный выбор")
+                return
+            
+            contacts = cur.fetchall()
+            if contacts:
+                print("\nРезультаты поиска:")
+                print(tabulate(
+                    contacts,
+                    headers=["ID", "Имя", "Фамилия", "Телефон"],
+                    tablefmt="fancy_grid"
+                ))
+            else:
+                print("Контакты не найдены")
+    except Exception as e:
+        print(f"Ошибка при поиске: {e}")
+
+def delete_contact(conn):
+    """Удаляет контакт"""
+    print("\nУдаление контакта:")
+    phone = input("Введите телефон контакта для удаления: ")
+    
+    try:
+        with conn.cursor() as cur:
+            cur.execute("DELETE FROM phonebook WHERE phone = %s", (phone,))
+            if cur.rowcount > 0:
+                conn.commit()
+                print("Контакт успешно удален")
+            else:
+                print("Контакт не найден")
+    except Exception as e:
+        print(f"Ошибка при удалении: {e}")
+        conn.rollback()
+
+def main():
+    """Основная функция программы"""
+    conn = create_connection()
+    initialize_database(conn)
+    
+    while True:
+        choice = main_menu()
+        
+        if choice == "1":
+            add_contact(conn)
+        elif choice == "2":
+            update_contact(conn)
+        elif choice == "3":
+            search_contacts(conn)
+        elif choice == "4":
+            delete_contact(conn)
+        elif choice == "5":
+            search_contacts(conn)  # Показываем все контакты
+        elif choice == "6":
+            print("До свидания!")
+            break
+        else:
+            print("Неверный выбор, попробуйте снова")
+        
+        input("\nНажмите Enter чтобы продолжить...")
+    
+    conn.close()
+
+if __name__ == "__main__":
+    main()
